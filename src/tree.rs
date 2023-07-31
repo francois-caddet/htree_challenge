@@ -7,6 +7,7 @@ pub struct HMap<D: Hash> {
     tree: Tree,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 enum Tree {
     Empty,
     Leaf {
@@ -105,5 +106,97 @@ impl Tree {
 impl Default for Tree {
     fn default() -> Self {
         Tree::Empty
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// A merge should keep the order of the ops.
+    /// Merge of empty trees is empty.
+    fn sim_merge() {
+        // both empty
+        let left = Tree::Empty;
+        let right = Tree::Empty;
+        assert_eq!(
+            left.merge(right),
+            Tree::Empty,
+        );
+        // both leafs
+        let left = Tree::Leaf{hash: blake3::hash(&[0u8])};
+        let right = Tree::Leaf{hash: blake3::hash(&[1u8])};
+        assert_eq!(
+            left.clone().merge(right.clone()),
+            Tree::Node{
+                left: Box::new(left),
+                right: Box::new(right),
+            }
+        );
+    }
+
+    #[test]
+    /// When merging anything with an empty tree, it result to this thing.
+    /// The merge is associative in this case.
+    fn identity_merge() {
+        // left is empty
+        let left = Tree::Empty;
+        let right = Tree::Leaf{hash: blake3::hash(&[1u8])};
+        assert_eq!(
+            left.merge(right.clone()),
+            right,
+        );
+        // right is empty;
+        let left = Tree::Leaf{hash: blake3::hash(&[0u8])};
+        let right = Tree::Empty;
+        assert_eq!(
+            left.clone().merge(right),
+            left,
+        );
+    }
+
+    #[test]
+    /// Merge is a simple op, it does not try to reshape the tree.
+    fn deep_merge() {
+        let left = Tree::Leaf{hash: blake3::hash(&[0u8])};
+        let right = Tree::Node{
+            left: Box::new(Tree::Leaf{hash: blake3::hash(&[1u8])}),
+            right: Box::new(Tree::Leaf{hash: blake3::hash(&[2u8])}),
+        };
+        assert_eq!(
+            left.clone().merge(right.clone()),
+            Tree::Node{
+                left: Box::new(left),
+                right: Box::new(right),
+            }
+        );
+    }
+
+    #[test]
+    fn hash() {
+        let left = Tree::Leaf{hash: blake3::hash(&[0u8])};
+        let right = Tree::Leaf{hash: blake3::hash(&[1u8])};
+        
+        // a leaf hash is it's contained hash.
+        assert_eq!(
+            right.clone().hash(),
+            blake3::hash(&[1u8]),
+        );
+
+        // resist over extention with 0.
+        assert_ne!(
+            left.clone().merge(right.clone()).hash(),
+            right.clone().hash(),
+        );
+        assert_ne!(
+            left.clone().merge(right.clone()).hash(),
+            left.clone().hash(),
+        );
+        
+        // A tree hash differ if elems are not in the same order.
+        assert_ne!(
+            left.clone().merge(right.clone()).hash(),
+            right.merge(left).hash(),
+        );
     }
 }
