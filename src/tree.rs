@@ -19,11 +19,13 @@ enum Tree {
     },
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Proof{nth: usize, hashes: Vec<blake3::Hash>}
 
 pub struct PartialProof(blake3::Hash);
 
 impl Proof {
+
     fn prove_on(&self, hash: blake3::Hash) -> PartialProof {
         let Proof{nth, hashes} = self;
         let mut mask = 0x1 << hashes.len();
@@ -40,9 +42,18 @@ impl Proof {
             })
         )
     }
+    fn prove(&self) -> PartialProof {
+        todo!()
+    }
 }
 
-impl<D: Hash> HMap<D> {
+impl PartialProof {
+    fn against(&self, hash: blake3::Hash) -> bool {
+        todo!()
+    }
+}
+
+impl<D: Hash + Clone> HMap<D> {
     pub fn new() -> Self {
         Self {
             data: vec![],
@@ -75,6 +86,17 @@ impl<D: Hash> HMap<D> {
         *current_node = node.merge(Tree::Leaf{hash});
         self.data.push(data);
         Proof{nth, hashes}
+    }
+
+    pub fn proof(&self, nth: usize) -> Proof {
+        todo!()
+    }
+
+    pub fn get(&self, nth: usize) -> (Proof, D) {
+        (
+            self.proof(nth),
+            self.data[nth].clone(),
+        )
     }
 }
 
@@ -197,6 +219,61 @@ mod tests {
         assert_ne!(
             left.clone().merge(right.clone()).hash(),
             right.merge(left).hash(),
+        );
+    }
+
+    #[test]
+    fn proof() {
+        let store = HMap {
+            data: vec![0],
+            tree: Tree::Leaf{hash: blake3::hash(&[0u8])},
+        };
+        assert_eq!(store.proof(0), Proof{nth: 0, hashes: vec![]});
+
+        let store = HMap {
+            data: vec![0u8, 1u8],
+            tree: Tree::Node{
+                left: Box::new(Tree::Leaf{hash: blake3::hash(&[0u8])}),
+                right: Box::new(Tree::Leaf{hash: blake3::hash(&[1u8])}),
+            },
+        };
+        assert_eq!(store.proof(0),
+            Proof{
+                nth: 0,
+                hashes: vec![blake3::hash(&[1u8])],
+            }
+        );
+        assert_eq!(store.proof(1),
+            Proof{
+                nth: 1,
+                hashes: vec![blake3::hash(&[0u8])],
+            }
+        );
+
+        let store = HMap {
+            data: vec![0u8, 1u8, 2u8],
+            tree: Tree::Node{
+                left: Box::new(Tree::Node {
+                    left: Box::new(Tree::Leaf{hash: blake3::hash(&[0u8])}),
+                    right: Box::new(Tree::Leaf{hash: blake3::hash(&[2u8])}),
+                }),
+                right: Box::new(Tree::Leaf{hash: blake3::hash(&[1u8])}),
+            },
+        };
+        assert_eq!(store.proof(0),
+            Proof{
+                nth: 0,
+                hashes: vec![
+                    blake3::hash(&[1u8]),
+                    blake3::hash(&[2u8]),
+                ],
+            }
+        );
+        assert_eq!(store.proof(1),
+            Proof{
+                nth: 1,
+                hashes: vec![blake3::hash(&[0u8, 2u8])],
+            }
         );
     }
 }
