@@ -26,7 +26,7 @@ pub struct PartialProof(blake3::Hash);
 
 impl Proof {
 
-    fn prove_on(&self, hash: blake3::Hash) -> PartialProof {
+    pub fn prove_on(&self, hash: blake3::Hash) -> PartialProof {
         let Proof{nth, hashes} = self;
         let mut mask = 0x1 << hashes.len();
         PartialProof(
@@ -42,14 +42,21 @@ impl Proof {
             })
         )
     }
-    fn prove(&self) -> PartialProof {
+    pub fn hash(&self) -> Option<blake3::Hash> {
         todo!()
     }
 }
 
 impl PartialProof {
-    fn against(&self, hash: blake3::Hash) -> bool {
+    pub fn against(&self, hash: &blake3::Hash) -> bool {
         todo!()
+    }
+}
+
+impl Deref for PartialProof {
+    type Target = blake3::Hash;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
