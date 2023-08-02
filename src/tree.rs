@@ -1,15 +1,16 @@
 pub use std::ops::Deref;
 pub use std::hash::Hash;
-use std::cell::Cell;
 
-#[derive(Debug)]
+
+#[derive(Debug, Default)]
 pub struct HMap<D: Hash> {
     data: Vec<D>,
     tree: Tree,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 enum Tree {
+    #[default]
     Empty,
     Leaf {
         hash: blake3::Hash,
@@ -93,7 +94,7 @@ impl<D: Hash + Clone> HMap<D> {
             }
             pos >>= 1;
         };
-        if self.data.len() > 0 {
+        if !self.data.is_empty() {
             hashes.push(current_node.hash());
         }
         *current_node = current_node.clone().merge(Tree::Leaf{hash});
@@ -151,11 +152,7 @@ impl Tree {
     }
 }
 
-impl Default for Tree {
-    fn default() -> Self {
-        Tree::Empty
-    }
-}
+
 #[cfg(test)]
 mod tests {
     use super::*;
