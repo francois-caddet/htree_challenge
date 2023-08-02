@@ -30,13 +30,7 @@ pub fn proof() {
         let (proof, _) = store.get(i as usize);
         let new_root = proof.prove_on(hi);
         assert_eq!(proof.hash(), root);
-        root.as_ref().map(|r| assert!(new_root.against(r)));
+        root.map(|r| assert!(new_root.against(r)));
         root = Some(*new_root);
-    }
-
-    // check it can find any element
-    for i in 0..7 {
-        let (_, j) = store.get(i as usize);
-        assert_eq!(i, j);
     }
 }

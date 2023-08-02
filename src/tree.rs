@@ -42,14 +42,19 @@ impl Proof {
             })
         )
     }
+
     pub fn hash(&self) -> Option<blake3::Hash> {
-        todo!()
+        // could be implemented without cloning.
+        let Proof{nth, hashes} = self;
+        let mut hashes = hashes.clone();
+        let hash = hashes.pop();
+        hash.map(|hash| *Proof{nth: *nth, hashes}.prove_on(hash))
     }
 }
 
 impl PartialProof {
-    pub fn against(&self, hash: &blake3::Hash) -> bool {
-        todo!()
+    pub fn against(&self, hash: blake3::Hash) -> bool {
+        self.0 == hash
     }
 }
 
@@ -96,7 +101,20 @@ impl<D: Hash + Clone> HMap<D> {
     }
 
     pub fn proof(&self, nth: usize) -> Proof {
-        todo!()
+        let mut current_node = &self.tree;
+        let mut pos = nth;
+        let mut hashes = Vec::new();
+        while let Tree::Node{left, right} = current_node {
+            if pos & 0x1 > 0 {
+                hashes.push(left.hash());
+                current_node = right.as_ref();
+            } else {
+                hashes.push(right.hash());
+                current_node = left.as_ref();
+            }
+            pos >>= 1;
+        }
+        Proof{nth, hashes}
     }
 
     pub fn get(&self, nth: usize) -> (Proof, D) {
