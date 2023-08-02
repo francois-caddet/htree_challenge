@@ -2,6 +2,7 @@ pub use std::ops::Deref;
 pub use std::hash::Hash;
 use std::cell::Cell;
 
+#[derive(Debug)]
 pub struct HMap<D: Hash> {
     data: Vec<D>,
     tree: Tree,
@@ -28,14 +29,18 @@ impl Proof {
 
     pub fn prove_on(&self, hash: blake3::Hash) -> PartialProof {
         let Proof{nth, hashes} = self;
-        let mut mask = 0x1 << hashes.len();
+        let len = hashes.len();
+        let mut mask = if len > 0 {
+            0x1 << (len - 1)
+        } else {0};
+        eprintln!("{}, {:?}", mask, hashes);
         PartialProof(
             hashes.iter().rfold(hash, |ag, h| {
                 let mut hasher = blake3::Hasher::new();
                 if nth & mask > 0 {
-                    hasher.update(ag.as_bytes()).update(h.as_bytes());
-                } else {
                     hasher.update(h.as_bytes()).update(ag.as_bytes());
+                } else {
+                    hasher.update(ag.as_bytes()).update(h.as_bytes());
                 }
                 mask >>= 1;
                 hasher.finalize()
@@ -75,27 +80,23 @@ impl<D: Hash + Clone> HMap<D> {
 
     pub fn push(&mut self, hash: blake3::Hash, data: D) -> Proof {
         let nth = self.data.len();
-        if nth == 0 {
-            self.tree = Tree::Leaf{hash};
-        }
         let mut pos = nth;
         let mut hashes = Vec::new();
         let mut current_node = &mut self.tree;
-        let node = loop {
-            if let Tree::Node{left, right} = current_node {
-                pos >>= 1;
-                if pos & 0x1 > 0 {
-                    hashes.push(right.hash());
-                    current_node = left;
-                } else {
-                    hashes.push(left.hash());
-                    current_node = right;
-                }
-            } else if let Tree::Leaf{hash} = current_node {
-                break Tree::Leaf{hash: hash.clone()};
+        while let Tree::Node{left, right} = current_node {
+            if pos & 0x1 > 0 {
+                hashes.push(left.hash());
+                current_node = right;
+            } else {
+                hashes.push(right.hash());
+                current_node = left;
             }
+            pos >>= 1;
         };
-        *current_node = node.merge(Tree::Leaf{hash});
+        if self.data.len() > 0 {
+            hashes.push(current_node.hash());
+        }
+        *current_node = current_node.clone().merge(Tree::Leaf{hash});
         self.data.push(data);
         Proof{nth, hashes}
     }
@@ -297,7 +298,11 @@ mod tests {
         assert_eq!(store.proof(1),
             Proof{
                 nth: 1,
-                hashes: vec![blake3::hash(&[0u8, 2u8])],
+                hashes: vec![blake3::Hasher::new()
+                    .update(blake3::hash(&[0u8]).as_bytes())
+                    .update(blake3::hash(&[2u8]).as_bytes())
+                    .finalize()
+                ],
             }
         );
     }
