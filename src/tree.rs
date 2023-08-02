@@ -1,7 +1,34 @@
+//! Merkel tree append only storage.
+//!
+//! This module contains the structs needed to create a merkel tree storage and perform proofs on
+//! it.
+//!
+//! # exemples
+//!
+//! ```
+//! use htree_challenge::tree::*;
+//! // create a merkel tree.
+//!let mut store = HMap::new();
+//!
+//!// insert elements.
+//! let data: [&[u8];3] = [b"one", b"two", b"three"];
+//! for d in data {
+//! store.push(blake3::hash(d), d);
+//! }
+//!
+//!// get the root hash of the tree. In a Client/Server mode, the client will not use this value
+//!// and compute itself the root (see the tests dir in the repo).
+//!let root = store.root();
+//! 
+//! // we check the data is not corupted.
+//! for i in 0..3 {
+//! assert!(store.proof(i).prove_on(blake3::hash(data[i])).against(root))
+//! }
+//! ```
 pub use std::ops::Deref;
 pub use std::hash::Hash;
 
-
+/// The merkel tree storage.
 #[derive(Debug, Default)]
 pub struct HMap<D: Hash> {
     data: Vec<D>,
@@ -21,6 +48,10 @@ enum Tree {
     },
 }
 
+/// A proof used to check data are not corupted.
+///
+/// This can be obtained by a call to [HMap::get].
+/// It's also returned at every insertion in a [HMap] via [HMap::push].
 #[derive(Debug, PartialEq)]
 pub struct Proof{nth: usize, hashes: Vec<blake3::Hash>}
 
@@ -77,6 +108,10 @@ impl<D: Hash + Clone> HMap<D> {
             data: vec![],
             tree: Tree::Empty,
         }
+    }
+
+    pub fn root(&self) -> blake3::Hash {
+        self.tree.hash()
     }
 
     pub fn push(&mut self, hash: blake3::Hash, data: D) -> Proof {
