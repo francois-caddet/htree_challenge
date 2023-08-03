@@ -58,9 +58,17 @@ pub struct Proof {
     hashes: Vec<blake3::Hash>,
 }
 
+/// A "hashed" proof with the hash of the challenged data.
+///
+/// See [Proof] to see how to use it.
+///
+/// It deref to [blake3::Hash] so the use of [PartialProof::against] is equivalent to test the
+/// equality of it's deref with a [blake3::Hash].
 pub struct PartialProof(blake3::Hash);
 
 impl Proof {
+    /// Perform the proof over a [Hash](blake3::Hash). Thesh parameter is the one of the data we
+    /// want to check the authenticity.
     pub fn prove_on(&self, hash: blake3::Hash) -> PartialProof {
         let Proof { nth, hashes } = self;
         let len = hashes.len();
@@ -78,6 +86,18 @@ impl Proof {
         }))
     }
 
+    /// Performs a hashing of this proof.
+    ///
+    /// Having an element `E` and it's brother `E'`:
+    ///
+    /// if we get the proof of E e.g.: by a call to [HMap::proof]), calling this function on the
+    /// result is as proving the authenticity of `E'` after droping `E` without changes to the
+    /// tree shape.
+    /// It's used to update the root on the client side.
+    ///
+    /// # Exemple
+    ///
+    /// TODO
     pub fn hash(&self) -> Option<blake3::Hash> {
         // could be implemented without cloning.
         let Proof { nth, hashes } = self;
@@ -101,6 +121,7 @@ impl Deref for PartialProof {
 }
 
 impl<D: Hash + Clone> HMap<D> {
+    /// Create an empty storage.
     pub fn new() -> Self {
         Self {
             data: vec![],
@@ -108,10 +129,15 @@ impl<D: Hash + Clone> HMap<D> {
         }
     }
 
+    /// Compute the root of the full underlying merkel tree.
+    ///
+    /// In a client server environment, it can only be computed by the server and so is not
+    /// confiable by the client.
     pub fn root(&self) -> blake3::Hash {
         self.tree.hash()
     }
 
+    /// Push an element to the store and returns it's proof.
     pub fn push(&mut self, hash: blake3::Hash, data: D) -> Proof {
         let nth = self.data.len();
         let mut pos = nth;
@@ -135,6 +161,7 @@ impl<D: Hash + Clone> HMap<D> {
         Proof { nth, hashes }
     }
 
+    /// Returns the proof ot the `nth` element of the store.
     pub fn proof(&self, nth: usize) -> Proof {
         let mut current_node = &self.tree;
         let mut pos = nth;
@@ -152,6 +179,8 @@ impl<D: Hash + Clone> HMap<D> {
         Proof { nth, hashes }
     }
 
+    /// Get an element by index. the current API returns it with it's proof but it may change
+    /// later.
     pub fn get(&self, nth: usize) -> (Proof, D) {
         (self.proof(nth), self.data[nth].clone())
     }
@@ -187,8 +216,8 @@ mod tests {
     use super::*;
 
     #[test]
-    /// A merge should keep the order of the ops.
-    /// Merge of empty trees is empty.
+    // A merge should keep the order of the ops.
+    // Merge of empty trees is empty.
     fn sim_merge() {
         // both empty
         let left = Tree::Empty;
@@ -211,8 +240,8 @@ mod tests {
     }
 
     #[test]
-    /// When merging anything with an empty tree, it result to this thing.
-    /// The merge is associative in this case.
+    // When merging anything with an empty tree, it result to this thing.
+    // The merge is associative in this case.
     fn identity_merge() {
         // left is empty
         let left = Tree::Empty;
