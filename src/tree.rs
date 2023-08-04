@@ -22,24 +22,27 @@
 //!
 //! // we check the data is not corupted.
 //! for i in 0..3 {
-//! assert!(store.proof(i).prove_on(blake3::hash(data[i])).against(root))
+//! assert!(store.proof(i).unwrap().prove_on(blake3::hash(data[i])).against(root))
 //! }
 //! ```
+pub use serde::{Deserialize, Serialize};
 pub use std::hash::Hash;
 pub use std::ops::Deref;
 
 /// The merkel tree storage.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HMap<D: Hash> {
     data: Vec<D>,
     tree: Tree,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 enum Tree {
     #[default]
     Empty,
     Leaf {
+        #[serde(deserialize_with = "hash_deser")]
+        #[serde(serialize_with = "hash_ser")]
         hash: blake3::Hash,
     },
     Node {
@@ -52,10 +55,36 @@ enum Tree {
 ///
 /// This can be obtained by a call to [HMap::get].
 /// It's also returned at every insertion in a [HMap] via [HMap::push].
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Proof {
     nth: usize,
+    #[serde(deserialize_with = "hash_vec_deser")]
+    #[serde(serialize_with = "hash_vec_ser")]
     hashes: Vec<blake3::Hash>,
+}
+
+// serialize helper for `Vec<blake3::hASH>`
+fn hash_vec_ser<S: serde::Serializer>(
+    vec: &Vec<blake3::Hash>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let vec2: Vec<[u8; 32]> = vec.iter().map(|h| *h.as_bytes()).collect();
+
+    vec2.serialize(serializer)
+}
+fn hash_vec_deser<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<blake3::Hash>, D::Error> {
+    let vec: Vec<[u8; 32]> = Deserialize::deserialize(deserializer)?;
+    Ok(vec.iter().map(|h| blake3::Hash::from_bytes(*h)).collect())
+}
+// serialize helper for `blake3::hASH`
+fn hash_ser<S: serde::Serializer>(hash: &blake3::Hash, serializer: S) -> Result<S::Ok, S::Error> {
+    hash.as_bytes().serialize(serializer)
+}
+fn hash_deser<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<blake3::Hash, D::Error> {
+    let bytes: [u8; 32] = Deserialize::deserialize(deserializer)?;
+    Ok(blake3::Hash::from_bytes(bytes))
 }
 
 /// A "hashed" proof with the hash of the challenged data.
@@ -162,7 +191,10 @@ impl<D: Hash + Clone> HMap<D> {
     }
 
     /// Returns the proof ot the `nth` element of the store.
-    pub fn proof(&self, nth: usize) -> Proof {
+    pub fn proof(&self, nth: usize) -> Option<Proof> {
+        if nth >= self.data.len() {
+            return None;
+        }
         let mut current_node = &self.tree;
         let mut pos = nth;
         let mut hashes = Vec::new();
@@ -176,13 +208,18 @@ impl<D: Hash + Clone> HMap<D> {
             }
             pos >>= 1;
         }
-        Proof { nth, hashes }
+        Some(Proof { nth, hashes })
     }
 
     /// Get an element by index. the current API returns it with it's proof but it may change
     /// later.
-    pub fn get(&self, nth: usize) -> (Proof, D) {
-        (self.proof(nth), self.data[nth].clone())
+    pub fn get(&self, nth: usize) -> Option<(Proof, D)> {
+        let data = self.data.get(nth);
+        let proof = self.proof(nth);
+        match (proof, data) {
+            (None, _) | (_, None) => None,
+            (Some(proof), Some(data)) => Some((proof, data.clone())),
+        }
     }
 }
 
@@ -319,10 +356,10 @@ mod tests {
         };
         assert_eq!(
             store.proof(0),
-            Proof {
+            Some(Proof {
                 nth: 0,
                 hashes: vec![]
-            }
+            })
         );
 
         let store = HMap {
@@ -338,17 +375,17 @@ mod tests {
         };
         assert_eq!(
             store.proof(0),
-            Proof {
+            Some(Proof {
                 nth: 0,
                 hashes: vec![blake3::hash(&[1u8])],
-            }
+            })
         );
         assert_eq!(
             store.proof(1),
-            Proof {
+            Some(Proof {
                 nth: 1,
                 hashes: vec![blake3::hash(&[0u8])],
-            }
+            })
         );
 
         let store = HMap {
@@ -369,20 +406,20 @@ mod tests {
         };
         assert_eq!(
             store.proof(0),
-            Proof {
+            Some(Proof {
                 nth: 0,
                 hashes: vec![blake3::hash(&[1u8]), blake3::hash(&[2u8]),],
-            }
+            })
         );
         assert_eq!(
             store.proof(1),
-            Proof {
+            Some(Proof {
                 nth: 1,
                 hashes: vec![blake3::Hasher::new()
                     .update(blake3::hash(&[0u8]).as_bytes())
                     .update(blake3::hash(&[2u8]).as_bytes())
                     .finalize()],
-            }
+            })
         );
     }
 }
