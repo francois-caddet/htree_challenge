@@ -20,11 +20,15 @@ async fn load_store(
     _res: &mut Response,
     _ctrl: &mut FlowCtrl,
 ) {
-    let root = req.query::<String>("root").unwrap();
-    let path = format!("data/{}.json", root);
-    let store: HMap<PathBuf> = if fs::try_exists(&path).await.unwrap() {
-        let data = fs::read(path).await.unwrap();
-        serde_json::from_slice(&data).unwrap()
+    let root = req.query::<String>("root");
+    let path = root.map(|r| format!("data/{}.json", r));
+    let store: HMap<PathBuf> = if let Some(p) = path {
+        if fs::try_exists(&p).await.unwrap() {
+            let data = fs::read(p).await.unwrap();
+            serde_json::from_slice(&data).unwrap()
+        } else {
+            HMap::new()
+        }
     } else {
         HMap::new()
     };
@@ -38,6 +42,7 @@ async fn save_store(
     _res: &mut Response,
     _ctrl: &mut FlowCtrl,
 ) {
+    println!("save_store");
     let root = depot.get::<blake3::Hash>("root").unwrap();
     let old_root = req.query::<String>("root");
     let path = format!("data/{}.json", root.to_hex());
@@ -77,8 +82,9 @@ async fn get_proof(req: &mut Request, depot: &mut Depot, res: &mut Response, _ct
 #[handler]
 async fn push(req: &mut Request, depot: &mut Depot, res: &mut Response, _ctrl: &mut FlowCtrl) {
     let hash = blake3::Hash::from_hex(req.form::<String>("hash").await.unwrap()).unwrap();
-    let file = req.file("file").await.unwrap();
+    println!("push: {:#?}", hash);
     let store = depot.get_mut::<HMap<PathBuf>>("store").unwrap();
+    let file = req.file("file").await.unwrap();
     let proof = store.push(hash, file.name().unwrap().into());
     let root: blake3::Hash = *proof.prove_on(hash);
     depot.insert("root", root);
@@ -90,7 +96,7 @@ async fn main() {
     let args = ServerArgs::parse();
     let acceptor = TcpListener::new((args.server, args.port)).bind().await;
     let router = Router::with_hoop(load_store)
-        .push(Router::new().post(push).hoop(save_store))
+        .push(Router::with_hoop(push).post(save_store))
         .push(
             Router::with_path("<id: num>")
                 .get(get)
