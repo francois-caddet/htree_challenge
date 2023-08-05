@@ -83,6 +83,7 @@ async fn get_proof(req: &mut Request, depot: &mut Depot, res: &mut Response, _ct
 async fn push(req: &mut Request, depot: &mut Depot, res: &mut Response, _ctrl: &mut FlowCtrl) {
     let hash = blake3::Hash::from_hex(req.form::<String>("hash").await.unwrap()).unwrap();
     println!("push: {:#?}", hash);
+    println!("push: {:#?}", req.form_data().await);
     let store = depot.get_mut::<HMap<PathBuf>>("store").unwrap();
     let file = req.file("file").await.unwrap();
     let proof = store.push(hash, file.name().unwrap().into());
@@ -93,6 +94,9 @@ async fn push(req: &mut Request, depot: &mut Depot, res: &mut Response, _ctrl: &
 
 #[tokio::main]
 async fn main() {
+    if !fs::try_exists("path").await.unwrap() {
+        fs::create_dir("data").await.unwrap();
+    }
     let args = ServerArgs::parse();
     let acceptor = TcpListener::new((args.server, args.port)).bind().await;
     let router = Router::with_hoop(load_store)
