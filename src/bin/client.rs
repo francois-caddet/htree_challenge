@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use htree_challenge::tree::Proof;
 use reqwest::blocking::{multipart::*, Client};
 use serde_json::{from_slice, to_vec};
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ struct ClientArgs {
 fn main() {
     let args = ClientArgs::parse();
     let roots_json = fs::read("roots.json");
-    let roots: HashMap<String, String> = roots_json
+    let mut roots: HashMap<String, String> = roots_json
         .map(|json| from_slice(&json).unwrap())
         .unwrap_or(HashMap::new());
     let client = Client::new();
@@ -39,17 +40,48 @@ fn main() {
                         .file("file", file)
                         .unwrap(),
                 );
-            println!("{:#?}", req);
-            let res = if let Some(root) = roots.get(&args.server) {
-                req.query(&("root", root))
+            let root = roots.get(&args.server);
+            let res = if let Some(root) = root {
+                req.query(&[("root", root)])
             } else {
                 req
             }
             .send();
-            println!("{:#?}", res);
+            let proof: Proof = res.unwrap().json().unwrap();
+            let root = if proof.hash() == root.map(|r| blake3::Hash::from_hex(r).unwrap()) {
+                proof.prove_on(hash)
+            } else {
+                panic!("Server corupted");
+            };
+            roots.insert(args.server, root.to_hex().to_string());
+            fs::write("roots.json", serde_json::to_vec(&roots).unwrap()).unwrap();
         }
         Command::Get { nth, file } => {
-            todo!();
+            let root = &roots[&args.server];
+            let res = client
+                .get(format!("http://{}:{}/{}", args.server, args.port, nth))
+                .query(&[("root", root)])
+                .send()
+                .unwrap();
+            let bytes = res.bytes().unwrap();
+            let res = client
+                .get(format!(
+                    "http://{}:{}/{}/proof",
+                    args.server, args.port, nth
+                ))
+                .query(&[("root", root)])
+                .send()
+                .unwrap();
+            let proof: Proof = res.json().unwrap();
+            if proof
+                .prove_on(blake3::hash(&bytes))
+                .against(blake3::Hash::from_hex(root).unwrap())
+            {
+                fs::write(file.clone(), bytes).unwrap();
+                println!("Downloaded file into: {}", file);
+            } else {
+                panic!("Server corupted");
+            }
         }
         Command::Proof { file, nth } => {
             todo!();

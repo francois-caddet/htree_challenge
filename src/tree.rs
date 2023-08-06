@@ -211,15 +211,25 @@ impl<D: Hash + Clone> HMap<D> {
         Some(Proof { nth, hashes })
     }
 
+    pub fn get_hash(&self, mut nth: usize) -> Option<blake3::Hash> {
+        if nth >= self.data.len() {
+            return None;
+        }
+        let mut current_node = &self.tree;
+        while let Tree::Node { left, right } = current_node {
+            if nth & 0x1 > 0 {
+                current_node = right.as_ref();
+            } else {
+                current_node = left.as_ref();
+            }
+            nth >>= 1;
+        }
+        Some(current_node.hash())
+    }
     /// Get an element by index. the current API returns it with it's proof but it may change
     /// later.
-    pub fn get(&self, nth: usize) -> Option<(Proof, D)> {
-        let data = self.data.get(nth);
-        let proof = self.proof(nth);
-        match (proof, data) {
-            (None, _) | (_, None) => None,
-            (Some(proof), Some(data)) => Some((proof, data.clone())),
-        }
+    pub fn get(&self, nth: usize) -> Option<D> {
+        self.data.get(nth).cloned()
     }
 }
 
