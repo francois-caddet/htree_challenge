@@ -83,8 +83,26 @@ fn main() {
                 panic!("Server corupted");
             }
         }
-        Command::Proof { file, nth } => {
-            todo!();
+        Command::Proof { nth, file } => {
+            let root = &roots[&args.server];
+            let bytes = fs::read(file.clone()).unwrap();
+            let res = client
+                .get(format!(
+                    "http://{}:{}/{}/proof",
+                    args.server, args.port, nth
+                ))
+                .query(&[("root", root)])
+                .send()
+                .unwrap();
+            let proof: Proof = res.json().unwrap();
+            if proof
+                .prove_on(blake3::hash(&bytes))
+                .against(blake3::Hash::from_hex(root).unwrap())
+            {
+                println!("Proved: {}", file);
+            } else {
+                panic!("Proof failed! you may try to provethe wrong file or may the server be corupted.");
+            }
         }
     };
 }
