@@ -44,8 +44,8 @@ async fn save_store(
     _res: &mut Response,
     _ctrl: &mut FlowCtrl,
 ) {
-    println!("save_store");
     let root = depot.get::<blake3::Hash>("root").unwrap();
+    println!("save_store {}", root);
     let old_root = req.query::<String>("root");
     let path = format!("data/{}.store", root.to_hex());
     let store = depot.get::<HMap<String>>("store").unwrap();
@@ -97,7 +97,6 @@ async fn get_proof(req: &mut Request, depot: &mut Depot, res: &mut Response, _ct
 async fn push(req: &mut Request, depot: &mut Depot, res: &mut Response, _ctrl: &mut FlowCtrl) {
     let hash = blake3::Hash::from_hex(req.form::<String>("hash").await.unwrap()).unwrap();
     println!("push: {:#?}", hash);
-    println!("push: {:#?}", req.form_data().await);
     let file = req.file("file").await.unwrap();
     {
         depot.insert("file", file.path().clone());
@@ -123,6 +122,5 @@ async fn main() {
                 .get(get)
                 .push(Router::with_path("proof").get(get_proof)),
         );
-    println!("{:#?}", router);
     Server::new(acceptor).serve(router).await;
 }

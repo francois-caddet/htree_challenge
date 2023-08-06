@@ -49,6 +49,7 @@ fn main() {
             .send();
             let proof: Proof = res.unwrap().json().unwrap();
             let root = if proof.hash() == root.map(|r| blake3::Hash::from_hex(r).unwrap()) {
+                println!("Uploaded ID: {}", proof.nth());
                 proof.prove_on(hash)
             } else {
                 panic!("Server corupted");

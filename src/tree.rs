@@ -102,7 +102,6 @@ impl Proof {
         let Proof { nth, hashes } = self;
         let len = hashes.len();
         let mut mask = if len > 0 { 0x1 << (len - 1) } else { 0 };
-        eprintln!("{}, {:?}", mask, hashes);
         PartialProof(hashes.iter().rfold(hash, |ag, h| {
             let mut hasher = blake3::Hasher::new();
             if nth & mask > 0 {
@@ -133,6 +132,11 @@ impl Proof {
         let mut hashes = hashes.clone();
         let hash = hashes.pop();
         hash.map(|hash| *Proof { nth: *nth, hashes }.prove_on(hash))
+    }
+
+    /// Return the indice of the data prooved by this `Proof`
+    pub fn nth(&self) -> usize {
+        self.nth
     }
 }
 
