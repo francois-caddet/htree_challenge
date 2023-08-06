@@ -46,7 +46,6 @@
           buildInputs = with pkgs; [
             # Add additional build inputs here
             pkg-config
-            openssl
           ] ++ lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
             pkgs.libiconv
@@ -64,6 +63,14 @@
         # artifacts from above.
         htree-challenge = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
+        });
+        htree-server = craneLib.buildPackage (commonArgs // {
+          inherit cargoArtifacts;
+          cargoExtraArgs = "--bin htree-server";
+        });
+        htree-client = craneLib.buildPackage (commonArgs // {
+          inherit cargoArtifacts;
+          cargoExtraArgs = "--bin htree-client";
         });
       in
       {
@@ -112,11 +119,23 @@
           });
         };
 
-        packages.default = htree-challenge;
+        packages = {
+          inherit htree-challenge;
+          inherit htree-server;
+          inherit htree-client;
+          default = htree-challenge;
+        };
 
-        apps.default = flake-utils.lib.mkApp {
-          drv = htree-challenge;
-          name = "htree-challenge";
+        apps = rec {
+          client = flake-utils.lib.mkApp {
+            drv = htree-client;
+            name = "htree-client";
+          };
+          server = flake-utils.lib.mkApp {
+            drv = htree-server;
+            name = "htree-server";
+          };
+          default = client;
         };
 
         devShells.default = pkgs.mkShell {
@@ -136,7 +155,6 @@
             rustfmt
             nixpkgs-fmt
             pkg-config
-            openssl
           ];
         };
       });

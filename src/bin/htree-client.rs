@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use htree_challenge::tree::Proof;
 use reqwest::blocking::{multipart::*, Client};
-use serde_json::{from_slice};
+use serde_json::from_slice;
 use std::collections::HashMap;
 use std::fs;
 

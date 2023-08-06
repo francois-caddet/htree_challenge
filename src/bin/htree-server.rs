@@ -3,7 +3,7 @@ use htree_challenge::tree::*;
 use salvo::fs::NamedFile;
 use salvo::prelude::*;
 
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use tokio::fs;
 
 #[derive(Parser)]
