@@ -2,8 +2,8 @@ use clap::Parser;
 use htree_challenge::tree::*;
 use salvo::fs::NamedFile;
 use salvo::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+
+use std::path::{PathBuf};
 use tokio::fs;
 
 #[derive(Parser)]
