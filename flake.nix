@@ -124,6 +124,20 @@
           inherit htree-server;
           inherit htree-client;
           default = htree-challenge;
+        } // lib.optionals pkgs.stdenv.isLinux {
+          server-docker = pkgs.dockerTools.buildImage {
+            name = "server-docker";
+            config = {
+              Expose = [2636];
+              EntryPoint = [ "${htree-server}/bin/htree-server" "0.0.0.0"];
+            };
+          };
+          client-docker = pkgs.dockerTools.buildImage {
+            name = "client-docker";
+            config = {
+              EntryPoint = [ "${htree-client}/bin/htree-client"];
+            };
+          };
         };
 
         apps = rec {
