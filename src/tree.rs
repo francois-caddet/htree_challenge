@@ -65,7 +65,7 @@ pub struct Proof {
 
 // serialize helper for `Vec<blake3::hASH>`
 fn hash_vec_ser<S: serde::Serializer>(
-    vec: &Vec<blake3::Hash>,
+    vec: &[blake3::Hash],
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     let vec2: Vec<[u8; 32]> = vec.iter().map(|h| *h.as_bytes()).collect();
