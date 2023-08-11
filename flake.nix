@@ -124,7 +124,7 @@
           inherit htree-server;
           inherit htree-client;
           default = htree-challenge;
-        } // lib.optionals pkgs.stdenv.isLinux {
+        } // (if pkgs.stdenv.isLinux then {
           server-docker = pkgs.dockerTools.buildImage {
             name = "server-docker";
             config = {
@@ -138,7 +138,7 @@
               EntryPoint = [ "${htree-client}/bin/htree-client"];
             };
           };
-        };
+        } else {});
 
         apps = rec {
           client = flake-utils.lib.mkApp {

@@ -69,13 +69,10 @@ async fn get(req: &mut Request, depot: &mut Depot, res: &mut Response, _ctrl: &m
     let id = req.param("id").unwrap();
     let name = store.get(id);
     if let Some(name) = name {
-        NamedFile::builder(format!(
-            "data/{}",
-            store.get_hash(id).unwrap().to_hex().to_string()
-        ))
-        .attached_name(name)
-        .send(req.headers(), res)
-        .await;
+        NamedFile::builder(format!("data/{}", store.get_hash(id).unwrap().to_hex()))
+            .attached_name(name)
+            .send(req.headers(), res)
+            .await;
     } else {
         res.render(StatusError::not_found());
     }
