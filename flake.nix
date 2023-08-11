@@ -24,6 +24,15 @@
     };
   };
 
+  nixConfig = {
+    extra-substituters = [
+      "https://francois-caddet.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "francois-caddet.cachix.org-1:WYf/RzhEA7GWBOo623fwh9LqXyOQrrZVide6P15GlmQ="
+    ];
+  };
+
   outputs = { self, nixpkgs, crane, flake-utils, rust-overlay, advisory-db, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -33,7 +42,7 @@
         };
 
         inherit (pkgs) lib;
-        rust = pkgs.rust-bin.nightly.latest.default;
+        rust = pkgs.rust-bin.stable.latest.default;
 
         craneLib = crane.lib.${system}.overrideToolchain rust;
 
